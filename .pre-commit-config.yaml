@@ -1,6 +1,22 @@
 repos:
--   repo: https://github.com/ambv/black
-    rev: stable
-    hooks:
-    - id: black
-      language_version: python3.6
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-executables-have-shebangs
+  - id: check-symlinks
+  - id: check-added-large-files
+    args: [--maxkb=100000] # 100 MB
+
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.12.2
+  hooks:
+    #Run the linter.
+    - id: ruff
+      types_or: [ python, pyi, jupyter ]
+      args: [ --fix, --exit-non-zero-on-fix ]
+    #Run the formatter.
+    - id: ruff-format
+      types_or: [ python, pyi, jupyter ]
