@@ -96,6 +96,7 @@ exclude = ["*.pyi", "*.ipynb", "tests/*", "doc/*", "hooks/*"]
 [lint.per-file-ignores]
 "__init__.py" = ["F401", "E402", "I001", "I002", "F811", "D419"]
 "__init__.pyi" = ["F401", "E402", "I001", "I002", "D419"]
+"_version.py" = ["UP007"]
 
 [format]
 docstring-code-format = true
