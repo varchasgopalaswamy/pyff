@@ -14,7 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-"astroid==2.0.0.dev0",
+"astroid",
 "colorama==0.3.9",
 "GitPython==3.1.32",
 ]
@@ -27,6 +27,9 @@ CI = [
 "pytest-runner==4.2",
 "coverage==4.5.1",
 ]
+
+[project.scripts]
+pyff = 'pyff.entrypoints:pyff'
 
 [build-system]
 requires = ["setuptools >= 67.0.0", "setuptools_scm>=8"]
