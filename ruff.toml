@@ -1,0 +1,106 @@
+target-version = "py312"
+
+[lint]
+select = [
+    #"D",
+    "I",
+    "W",
+    "T100", 
+    "YTT",
+    "UP009", 
+    "UP006",
+    "F",
+    "E",
+    "A",
+    "COM",
+    "EXE",
+    "FA",
+    "ISC",
+    "ICN",
+    "LOG",
+    "G",
+    "INP",
+    "PIE",
+    "PT",
+    "Q",
+    "RSE",
+    "TID",
+    "FLY",
+    "INT",
+    "FA",
+    "FURB",
+    "EM",
+    "RET",
+    "UP",
+    "DTZ",
+    "C4",
+    "TRY",
+    "SIM",
+    "PERF",
+    "RUF",
+    "SLF",
+    "NPY201",
+    #"FBT",
+    ### These should be fixed, but not on right now because
+    ### they produce a ton of errors
+    #"B",
+    #"T20",
+    #"PTH",
+    #"PD",
+    #"ANN",
+]
+extend-safe-fixes = ["EM102", "EM101", "SIM108", "RET504", "C408", "D200"]
+ignore = [
+    "E501", # line-too-long
+    "W291",
+    "TRY002",
+    "TRY301",
+    "SLF001",
+    "RUF015",
+    "PIE796",
+    "A005",
+    "UP040",
+    "COM812", # conflicts with formatter
+    "UP046", # disable until IDE supports it 
+    "UP047", # disable until IDE supports it 
+    "RUF005", # Bad interactions with numpy arrays 
+    "RUF002", # Greek characters in docstrings 
+    "D401", "D415", "D400", "D301", "D404", # Docstring style/grammar
+    "D103", "D100", "D104", "D102", "D105", "D107", "D101", "D417", # Missing docstring
+    "D205", # Reenable these
+    "D211", "D212", "D203",
+    #"W191",
+    #"S701",
+    #"SIM300",
+    #"S101",
+    #"RET505",
+    #"S602",
+    #"S608",
+    #"PIE796",
+    #"S324",
+    #"TRY002",
+    #"S106",
+    #"RUF015",
+    #"UP040",
+    #"SLF001",
+    #"SIM103",
+    #"A005",
+    #"RUF005",
+    #"UP046",
+    #"UP047",
+    "INP001",
+]
+exclude = ["*.pyi", "*.ipynb", "tests/*", "doc/*", "hooks/*"]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401", "E402", "I001", "I002", "F811", "D419"]
+"__init__.pyi" = ["F401", "E402", "I001", "I002", "D419"]
+
+[format]
+docstring-code-format = true
+line-ending = "lf"
+
+[lint.isort]
+from-first = false
+force-sort-within-sections = true
+required-imports = ["from __future__ import annotations"]
