@@ -111,3 +111,4 @@ tags
 # pytest
 .pytest_cache
 pyff/_version.py
+.aider*
