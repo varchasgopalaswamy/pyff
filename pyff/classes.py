@@ -3,11 +3,11 @@
 import ast
 import logging
 from types import MappingProxyType
-from typing import Union, List, Optional, Set, FrozenSet, Dict, Mapping
-from pyff.kitchensink import hl, pluralize, hlistify
-import pyff.imports as pi
-import pyff.functions as pf
+from typing import Dict, FrozenSet, List, Mapping, Optional, Set, Union
 
+import pyff.functions as pf
+import pyff.imports as pi
+from pyff.kitchensink import compare_ast, hl, hlistify, pluralize
 
 LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +60,9 @@ class ClassSummary:  # pylint: disable=too-few-public-methods
     @property
     def public_methods(self) -> FrozenSet[str]:
         """Return public methods of the class"""
-        return frozenset({method for method in self.methods if not method.startswith("_")})
+        return frozenset(
+            {method for method in self.methods if not method.startswith("_")}
+        )
 
     @property
     def private_methods(self) -> FrozenSet[str]:
@@ -167,17 +169,12 @@ class ClassesExtractor(ast.NodeVisitor):
         extractor = ClassesExtractor.MethodExtractor()
         extractor.visit(node)
 
-        bases: List[str] = []
-        for base in node.bases:
-            if base.id in self._names:
-                LOGGER.debug("Imported ancestor class '%s', base.id")
-                bases.append(ImportedBaseClass(base.id))
-            else:
-                LOGGER.debug("Local ancestor class '%s', base.id")
-                bases.append(LocalBaseClass(base.id))
 
         summary = ClassSummary(
-            extractor.methods, baseclasses=bases, definition=node, attributes=extractor.attributes
+            extractor.methods,
+            baseclasses=[],
+            definition=node,
+            attributes=extractor.attributes,
         )
         self._classes[node.name] = summary
 
@@ -196,7 +193,9 @@ class AttributesPyfference:  # pylint: disable=too-few-public-methods
                 f"Removed {pluralize('attribute', self.removed)} {hlistify(sorted(self.removed))}"
             )
         if self.new:
-            lines.append(f"New {pluralize('attribute', self.new)} {hlistify(sorted(self.new))}")
+            lines.append(
+                f"New {pluralize('attribute', self.new)} {hlistify(sorted(self.new))}"
+            )
 
         return "\n".join(lines)
 
@@ -212,10 +211,14 @@ class ClassPyfference:  # pylint: disable=too-few-public-methods
         name: str,
         attributes: Optional[AttributesPyfference],
         methods: Optional[pf.FunctionsPyfference],
+        decorators: bool = False,
+        base_classes_changed: bool = False,
     ) -> None:
         self.attributes: Optional[AttributesPyfference] = attributes
         self.methods: Optional[pf.FunctionsPyfference] = methods
         self.name = name
+        self.decorators = decorators
+        self.base_classes_changed = base_classes_changed
 
     def __str__(self):
         lines = [f"Class {hl(self.name)} changed:"]
@@ -225,14 +228,19 @@ class ClassPyfference:  # pylint: disable=too-few-public-methods
             self.methods.set_method()
             methods = str(self.methods)
             lines.append(methods)
-
+        if self.decorators:
+            lines.append("Decorators changed")
+        if self.base_classes_changed:
+            lines.append("Base classes changed")
         return "\n".join(lines).replace("\n", "\n  ")
 
 
 class ClassesPyfference:  # pylint: disable=too-few-public-methods
     """Holds differences between classes defined in a module"""
 
-    def __init__(self, new: Set[ClassSummary], changed: Dict[str, ClassPyfference]) -> None:
+    def __init__(
+        self, new: Set[ClassSummary], changed: Dict[str, ClassPyfference]
+    ) -> None:
         self.new: Set[ClassSummary] = new
         self.changed: Dict[str, ClassPyfference] = changed
 
@@ -253,20 +261,38 @@ def pyff_class(
     new_imports: pi.ImportedNames,
 ) -> Optional[ClassPyfference]:
     """Return differences in two classes"""
-    methods = pf.pyff_functions(old.definition, new.definition, old_imports, new_imports)
+    methods = pf.pyff_functions(
+        old.definition, new.definition, old_imports, new_imports
+    )
     attributes = AttributesPyfference(
         removed=old.attributes - new.attributes, new=new.attributes - old.attributes
     )
-    if methods or attributes:
+    decorators = not compare_ast(
+        old.definition.decorator_list, new.definition.decorator_list
+    )
+    base_classes_changed = any(
+        not compare_ast(old_base, new_base)
+        for old_base, new_base in zip(old.definition.bases, new.definition.bases)
+    ) or len(old.definition.bases) != len(new.definition.bases)
+    if methods or attributes or decorators or base_classes_changed:
         LOGGER.debug(f"Class '{new.name}' differs")
-        return ClassPyfference(name=new.name, methods=methods, attributes=attributes)
+        return ClassPyfference(
+            name=new.name,
+            methods=methods,
+            attributes=attributes,
+            decorators=decorators,
+            base_classes_changed=base_classes_changed,
+        )
 
     LOGGER.debug(f"Class '{old.name}' is identical")
     return None
 
 
 def pyff_classes(
-    old: ast.Module, new: ast.Module, old_imports: pi.ImportedNames, new_imports: pi.ImportedNames
+    old: ast.Module,
+    new: ast.Module,
+    old_imports: pi.ImportedNames,
+    new_imports: pi.ImportedNames,
 ) -> Optional[ClassesPyfference]:
     """Return differences in classes defined in two modules"""
     first_walker = ClassesExtractor(names=old_imports)
@@ -281,7 +307,10 @@ def pyff_classes(
     for klass in both:
         LOGGER.debug(f"Comparing class '{klass}'")
         difference = pyff_class(
-            first_walker.classes[klass], second_walker.classes[klass], old_imports, new_imports
+            first_walker.classes[klass],
+            second_walker.classes[klass],
+            old_imports,
+            new_imports,
         )
         LOGGER.debug(f"Difference: {difference}")
         if difference:
@@ -291,7 +320,9 @@ def pyff_classes(
             LOGGER.debug(f"Class {klass} is identical")
 
     new_classes = {
-        cls for cls in second_walker.classes.values() if cls.name not in first_walker.classnames
+        cls
+        for cls in second_walker.classes.values()
+        if cls.name not in first_walker.classnames
     }
     LOGGER.debug(f"New classes: {new_classes}")
 

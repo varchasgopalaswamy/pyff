@@ -2,14 +2,13 @@
 
 import ast
 import logging
-from itertools import zip_longest
-from typing import Optional, Set, Dict, List, Union, FrozenSet
 from collections.abc import Hashable
+from itertools import zip_longest
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 import pyff.imports as pi
 import pyff.statements as ps
-from pyff.kitchensink import hl, hlistify
-
+from pyff.kitchensink import compare_ast, hl, hlistify
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class FunctionImplementationChange(Hashable):  # pylint: disable=too-few-public-
 
     def make_message(self) -> str:  # pylint: disable=no-self-use
         """Returns a human-readable message explaining the change"""
-        return f"Code semantics changed"
+        return "Code semantics changed"
 
     def __eq__(self, other):
         return isinstance(other, FunctionImplementationChange)
@@ -98,7 +97,9 @@ class FunctionPyfference:  # pylint: disable=too-few-public-methods
 
         implementation_changes = []
         for change in self.implementation:
-            implementation_changes.append("  " + change.make_message().replace("\n", "\n  "))
+            implementation_changes.append(
+                "  " + change.make_message().replace("\n", "\n  ")
+            )
         lines.extend(sorted(implementation_changes))
 
         return "\n".join(lines)
@@ -121,7 +122,9 @@ class FunctionPyfference:  # pylint: disable=too-few-public-methods
 class FunctionSummary:  # pylint: disable=too-few-public-methods
     """Contains summary information about a function"""
 
-    def __init__(self, name: str, node: ast.FunctionDef, is_property: bool = False) -> None:
+    def __init__(
+        self, name: str, node: ast.FunctionDef, is_property: bool = False
+    ) -> None:
         self.node: ast.FunctionDef = node
         self.name: str = name
         self.property: bool = is_property
@@ -139,9 +142,7 @@ class FunctionSummary:  # pylint: disable=too-few-public-methods
         return f"{prop}{self._noun} {hl(self.name)}"
 
     def __repr__(self):
-        return (
-            f"FunctionSummary(name={self.name}, node={repr(self.node)}, property={self.property})"
-        )
+        return f"FunctionSummary(name={self.name}, node={repr(self.node)}, property={self.property})"
 
 
 class FunctionPyfferenceRecorder:
@@ -247,6 +248,9 @@ def pyff_function(
     new: FunctionSummary,
     old_imports: pi.ImportedNames,
     new_imports: pi.ImportedNames,
+    *,
+    check_typing: bool = True,
+    check_docstrings: bool = False,
 ) -> Optional[FunctionPyfference]:
     """Return differences between two Python functions.
 
@@ -265,8 +269,30 @@ def pyff_function(
     if old.name != new.name:
         LOGGER.debug(f"Name differs: old={old.name} new={new.name}")
         difference_recorder.name_changed(old.name)
+    old_body = [f for f in old.node.body]
+    new_body = [f for f in new.node.body]
 
-    for old_statement, new_statement in zip_longest(old.node.body, new.node.body):
+    # Check if docstrings differ
+    if not check_docstrings:
+        if ast.get_docstring(old.node):
+            old_body.pop(0)
+        if ast.get_docstring(new.node):
+            new_body.pop(0)
+    # Check if the same decorators are used
+    if not compare_ast(old.node.decorator_list, new.node.decorator_list):
+        LOGGER.debug("Decorators differ")
+        difference_recorder.implementation_changed(FunctionImplementationChange())
+
+    if check_typing:
+        if not compare_ast(old.node.returns, new.node.returns):
+            LOGGER.debug("Return Types differ")
+            difference_recorder.implementation_changed(FunctionImplementationChange())
+
+        if not compare_ast(old.node.args, new.node.args):
+            LOGGER.debug("Arguments differ")
+            difference_recorder.implementation_changed(FunctionImplementationChange())
+
+    for old_statement, new_statement in zip_longest(old_body, new_body):
         if old_statement is None or new_statement is None:
             LOGGER.debug(f"  old={repr(old_statement)}")
             LOGGER.debug(f"  new={repr(new_statement)}")
@@ -276,7 +302,9 @@ def pyff_function(
             difference_recorder.implementation_changed(FunctionImplementationChange())
             break
 
-        change = ps.pyff_statement(old_statement, new_statement, old_imports, new_imports)
+        change = ps.pyff_statement(
+            old_statement, new_statement, old_imports, new_imports
+        )
         if change:
             LOGGER.debug("  Statements are different")
             LOGGER.debug(f"  old={ast.dump(old_statement)}")
@@ -285,7 +313,9 @@ def pyff_function(
             if change.is_specific():
                 difference_recorder.implementation_changed(StatementChange(change))
             else:
-                difference_recorder.implementation_changed(FunctionImplementationChange())
+                difference_recorder.implementation_changed(
+                    FunctionImplementationChange()
+                )
 
     LOGGER.debug("Comparing imported name usage")
     external_name_usage_difference = compare_import_usage(
@@ -318,13 +348,17 @@ def pyff_function_code(
         extractor.visit(ast.parse(old))
         old_summary = extractor.functions.popitem()[1]
     except KeyError:
-        raise ValueError("Old module does not seem to contain exactly one function code")
+        raise ValueError(
+            "Old module does not seem to contain exactly one function code"
+        )
 
     try:
         extractor.visit(ast.parse(new))
         new_summary = extractor.functions.popitem()[1]
     except KeyError:
-        raise ValueError("Old module does not seem to contain exactly one function code")
+        raise ValueError(
+            "Old module does not seem to contain exactly one function code"
+        )
 
     return pyff_function(old_summary, new_summary, old_imports, new_imports)
 
@@ -377,12 +411,19 @@ class FunctionsPyfference:  # pylint: disable=too-few-public-methods
 
     def __str__(self) -> str:
         removed = "\n".join(
-            [f"Removed {f}" for f in sorted([str(self.removed[name]) for name in self.removed])]
+            [
+                f"Removed {f}"
+                for f in sorted([str(self.removed[name]) for name in self.removed])
+            ]
         )
         changed = "\n".join([str(self.changed[name]) for name in sorted(self.changed)])
-        new = "\n".join([f"New {f}" for f in sorted([str(self.new[name]) for name in self.new])])
+        new = "\n".join(
+            [f"New {f}" for f in sorted([str(self.new[name]) for name in self.new])]
+        )
 
-        return "\n".join([changeset for changeset in (removed, changed, new) if changeset])
+        return "\n".join(
+            [changeset for changeset in (removed, changed, new) if changeset]
+        )
 
     def set_method(self):
         """Used when FunctionPyfference is used in context of a class"""
@@ -427,7 +468,10 @@ def pyff_functions(
     for function in both:
         LOGGER.debug(f"Comparing function '{function}'")
         difference = pyff_function(
-            old_walker.functions[function], new_walker.functions[function], old_imports, new_imports
+            old_walker.functions[function],
+            new_walker.functions[function],
+            old_imports,
+            new_imports,
         )
         LOGGER.debug(f"Difference: {repr(difference)}")
         if difference:
