@@ -18,3 +18,20 @@ def test_changed_function_body():
     assert not diff.functions.removed
     assert diff.classes is None
     assert diff.imports is None
+
+
+def test_added_function():
+    """
+    Tests that pyff detects a new function.
+    """
+    base_path = TEST_DATA_DIR / "base.py"
+    added_path = TEST_DATA_DIR / "added_function.py"
+
+    diff = pyff_module_path(base_path, added_path)
+    assert diff is not None
+    assert diff.functions is not None
+    assert "new_foo" in diff.functions.new
+    assert not diff.functions.changed
+    assert not diff.functions.removed
+    assert diff.classes is None
+    assert diff.imports is None
