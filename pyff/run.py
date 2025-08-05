@@ -1,32 +1,39 @@
 """Entry point for the `pyff` command"""
 
-import sys
+from __future__ import annotations
+
+from argparse import ArgumentParser
+from collections.abc import Callable
 import logging
 import pathlib
-from argparse import ArgumentParser
-from typing import Callable
+import sys
 
+from pyff.directories import pyff_directory
+from pyff.kitchensink import HIGHLIGHTS, highlight
 from pyff.modules import pyff_module_path
 from pyff.packages import pyff_package_path
-from pyff.directories import pyff_directory
 from pyff.repositories import pyff_git_revision
-from pyff.kitchensink import highlight, HIGHLIGHTS
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _pyff_that(function: Callable, what: str, parser: ArgumentParser = ArgumentParser()) -> None:
+def _pyff_that(
+    function: Callable, what: str, parser: ArgumentParser = ArgumentParser()
+) -> None:
     parser.add_argument("old")
     parser.add_argument("new")
 
-    parser.add_argument("--highlight-names", dest="highlight", choices=HIGHLIGHTS, default="color")
+    parser.add_argument(
+        "--highlight-names", dest="highlight", choices=HIGHLIGHTS, default="color"
+    )
     parser.add_argument("--debug", action="store_true", default=False)
 
     args = parser.parse_args()
 
     if args.debug:
         logging.basicConfig(
-            format="%(levelname)s:%(name)s:%(funcName)s: %(message)s", level=logging.DEBUG
+            format="%(levelname)s:%(name)s:%(funcName)s: %(message)s",
+            level=logging.DEBUG,
         )
 
     LOGGER.debug(f"Python Diff: old {what} {args.old} | new {what} {args.new}")

@@ -12,6 +12,7 @@
 
 from argparse import Action, ArgumentParser
 
+
 class ParsePlayerAction(Action):
     def __init__(self, *args, **kwargs):
         Action.__init__(self, *args, **kwargs)
@@ -22,12 +23,13 @@ class ParsePlayerAction(Action):
         else:
             raise ValueError("VtES expects three to six players")
 
+
 def main():
     parser = ArgumentParser()
     subcommands = parser.add_subparsers()
 
     add = subcommands.add_parser("add")
-    add.add_argument("players", action=ParsePlayerAction, nargs='*')
+    add.add_argument("players", action=ParsePlayerAction, nargs="*")
 
     parser.parse_args()
 

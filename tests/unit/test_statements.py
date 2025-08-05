@@ -33,9 +33,14 @@ class TestFullyQualifyNames:
             "os.path.join([1, 2, 3])",
         )
         self._check_fqn(
-            "import os.path as pathy", "path = pathy", {"pathy": "os.path"}, "path = os.path"
+            "import os.path as pathy",
+            "path = pathy",
+            {"pathy": "os.path"},
+            "path = os.path",
         )
-        self._check_fqn("import os.path as pathy", "path = path.pathy", {}, "path = path.pathy")
+        self._check_fqn(
+            "import os.path as pathy", "path = path.pathy", {}, "path = path.pathy"
+        )
 
     def test_importfrom(self):
         self._check_fqn(
@@ -56,10 +61,14 @@ class TestFullyQualifyNames:
             {"f": "one.two.three.four"},
             "four = one.two.three.four",
         )
-        self._check_fqn("from one.two.three import four as f", "three = four", {}, "three = four")
+        self._check_fqn(
+            "from one.two.three import four as f", "three = four", {}, "three = four"
+        )
 
     def test_nosub(self):
-        self._check_fqn("import os", "os.path.join([1,2,3])", {}, "os.path.join([1,2,3])")
+        self._check_fqn(
+            "import os", "os.path.join([1,2,3])", {}, "os.path.join([1,2,3])"
+        )
 
     def test_references(self):
         self._check_references(
@@ -107,7 +116,9 @@ class TestExternalNameUsageChange:
         fip = ps.ExternalNameUsageChange({change_1, change_2})
         assert len(fip.changes) == 2
         assert ps.SingleExternalNameUsageChange("old", "new") in fip.changes
-        assert ps.SingleExternalNameUsageChange("another_old", "just_old") in fip.changes
+        assert (
+            ps.SingleExternalNameUsageChange("another_old", "just_old") in fip.changes
+        )
         assert str(fip) == "\n".join(sorted([str(change_1), str(change_2)]))
 
 
@@ -212,7 +223,10 @@ class TestPyffStatement:
 
     def test_different(self):
         change = ps.pyff_statement(
-            ast.parse("a = a + b"), ast.parse("a = a - b"), pi.ImportedNames(), pi.ImportedNames()
+            ast.parse("a = a + b"),
+            ast.parse("a = a - b"),
+            pi.ImportedNames(),
+            pi.ImportedNames(),
         )
         assert change.semantically_different()
 

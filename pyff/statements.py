@@ -1,12 +1,13 @@
 """This module contains code that handles comparing statements"""
 
+from __future__ import annotations
+
 import ast
-import logging
 import copy
-from typing import Set, Optional, Dict
+import logging
+
 import pyff.imports as pi
 from pyff.kitchensink import hl
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,8 +53,8 @@ class ExternalNameUsageChange:
 
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, changes: Set[SingleExternalNameUsageChange]) -> None:
-        self.changes: Set[SingleExternalNameUsageChange] = changes
+    def __init__(self, changes: set[SingleExternalNameUsageChange]) -> None:
+        self.changes: set[SingleExternalNameUsageChange] = changes
 
     def __repr__(self):  # pragma: no cover
         return f"ExternalNameUsageChange(changes={self.changes})"
@@ -73,10 +74,10 @@ class FullyQualifyNames(ast.NodeTransformer):
     """
 
     def __init__(self, imports: pi.ImportedNames) -> None:
-        super(FullyQualifyNames, self).__init__()
+        super().__init__()
         self.external_names: pi.ImportedNames = imports
-        self.substitutions: Dict[str, str] = {}
-        self.references: Dict[str, str] = {}
+        self.substitutions: dict[str, str] = {}
+        self.references: dict[str, str] = {}
         self._current = None
 
     def visit_Name(self, node):  # pylint: disable=invalid-name, missing-docstring
@@ -96,16 +97,19 @@ class FullyQualifyNames(ast.NodeTransformer):
         self.generic_visit(node)
         if self._current:
             prefix = self._current
-            self._current = ".".join([prefix, node.attr])
+            self._current = f"{prefix}.{node.attr}"
             key = self.references[prefix]
-            self.references[self._current] = ".".join([key, node.attr])
+            self.references[self._current] = f"{key}.{node.attr}"
 
         return node
 
 
 def find_external_name_matches(
-    old: ast.AST, new: ast.AST, old_imports: pi.ImportedNames, new_imports: pi.ImportedNames
-) -> Optional[ExternalNameUsageChange]:
+    old: ast.AST,
+    new: ast.AST,
+    old_imports: pi.ImportedNames,
+    new_imports: pi.ImportedNames,
+) -> ExternalNameUsageChange | None:
     """Tests two statements for semantical equality w.r.t. external name usage.
 
     Example:
@@ -139,24 +143,32 @@ def find_external_name_matches(
     LOGGER.debug("Fully qualifying new statement")
     fq_new = fq_new_transformer.visit(copy.deepcopy(new))
 
-    changes: Set[SingleExternalNameUsageChange] = set()
+    changes: set[SingleExternalNameUsageChange] = set()
 
     if ast.dump(fq_old) == ast.dump(fq_new):
         LOGGER.debug("Statements are identical after full qualification")
         LOGGER.debug(f"Old statement references: {fq_old_transformer.references}")
         LOGGER.debug(f"New statement references: {fq_new_transformer.references}")
         for original, fqdn in fq_old_transformer.substitutions.items():
-            LOGGER.debug(f"'{original}' was fully qualified as '{fqdn}' in old statement")
+            LOGGER.debug(
+                f"'{original}' was fully qualified as '{fqdn}' in old statement"
+            )
             if fqdn in fq_new_transformer.references:
                 changes.add(
-                    SingleExternalNameUsageChange(original, fq_new_transformer.references[fqdn])
+                    SingleExternalNameUsageChange(
+                        original, fq_new_transformer.references[fqdn]
+                    )
                 )
 
         for original, fqdn in fq_new_transformer.substitutions.items():
-            LOGGER.debug(f"'{original}' was fully qualified as '{fqdn}' in new statement")
+            LOGGER.debug(
+                f"'{original}' was fully qualified as '{fqdn}' in new statement"
+            )
             if fqdn in fq_old_transformer.references:
                 changes.add(
-                    SingleExternalNameUsageChange(fq_old_transformer.references[fqdn], original)
+                    SingleExternalNameUsageChange(
+                        fq_old_transformer.references[fqdn], original
+                    )
                 )
 
     return ExternalNameUsageChange(changes) if changes else None
@@ -167,8 +179,8 @@ class StatementPyfference:
 
     def __init__(self) -> None:
         # These functions are intentionally not typed
-        self.semantically_relevant: Set = set()
-        self.semantically_irrelevant: Set = set()
+        self.semantically_relevant: set = set()
+        self.semantically_irrelevant: set = set()
 
     def add_semantically_irrelevant_change(self, change) -> None:  # pylint: disable=invalid-name
         """Adds semantically irrelevant change."""
@@ -191,19 +203,15 @@ class StatementPyfference:
         return bool(self.semantically_relevant or not self.semantically_irrelevant)
 
     def __str__(self):
-        lines = []
-        for change in self.semantically_relevant:
-            lines.append(str(change))
-
-        for change in self.semantically_irrelevant:
-            lines.append(str(change))
+        lines = [str(change) for change in self.semantically_relevant]
+        lines.extend([str(change) for change in self.semantically_irrelevant])
 
         return "\n".join(lines)
 
     def __repr__(self):
         return (
-            f"StatementPyfference(relevant={repr(self.semantically_relevant)}, "
-            f"irrelevant={repr(self.semantically_irrelevant)})"
+            f"StatementPyfference(relevant={self.semantically_relevant!r}, "
+            f"irrelevant={self.semantically_irrelevant!r})"
         )
 
     def is_specific(self) -> bool:
@@ -216,7 +224,7 @@ def pyff_statement(
     new_statement: ast.AST,
     old_imports: pi.ImportedNames,
     new_imports: pi.ImportedNames,
-) -> Optional[StatementPyfference]:
+) -> StatementPyfference | None:
     """Compare two statements.
 
     Args:
@@ -234,9 +242,13 @@ def pyff_statement(
 
     pyfference = StatementPyfference()
 
-    change = find_external_name_matches(old_statement, new_statement, old_imports, new_imports)
+    change = find_external_name_matches(
+        old_statement, new_statement, old_imports, new_imports
+    )
     if change:
-        LOGGER.debug("Statements are semantically identical but differ in imported name references")
+        LOGGER.debug(
+            "Statements are semantically identical but differ in imported name references"
+        )
         pyfference.add_semantically_irrelevant_change(change)
 
     return pyfference

@@ -1,15 +1,15 @@
 """This module contains code that handles comparing modules"""
 
+from __future__ import annotations
+
 import ast
 import logging
 import pathlib
-from typing import List, Optional, Dict
 
 import pyff.classes as pc
 import pyff.functions as pf
 import pyff.imports as pi
-from pyff.kitchensink import hl, pluralize, hlistify
-
+from pyff.kitchensink import hl, hlistify, pluralize
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,21 +27,20 @@ class ModulePyfference:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        imports: Optional[pi.ImportsPyfference] = None,
-        classes: Optional[pc.ClassesPyfference] = None,
-        functions: Optional[pf.FunctionsPyfference] = None,
+        imports: pi.ImportsPyfference | None = None,
+        classes: pc.ClassesPyfference | None = None,
+        functions: pf.FunctionsPyfference | None = None,
     ) -> None:
-
-        self.other: List = []
-        self.imports: Optional[pi.ImportsPyfference] = imports
-        self.classes: Optional[pc.ClassesPyfference] = classes
-        self.functions: Optional[pf.FunctionsPyfference] = functions
+        self.other: list = []
+        self.imports: pi.ImportsPyfference | None = imports
+        self.classes: pc.ClassesPyfference | None = classes
+        self.functions: pf.FunctionsPyfference | None = functions
 
     def __str__(self):
         changes = [self.imports, self.classes, self.functions] + self.other
         return "\n".join([str(change) for change in changes if change is not None])
 
-    def simplify(self) -> Optional["ModulePyfference"]:
+    def simplify(self) -> ModulePyfference | None:
         """Cleans empty differences, empty sets etc. after manipulation"""
         if self.imports is not None:
             self.imports = self.imports.simplify()
@@ -52,7 +51,11 @@ class ModulePyfference:  # pylint: disable=too-few-public-methods
         if self.functions is not None:
             self.functions = self.functions.simplify()
 
-        return self if (self.functions or self.classes or self.imports or self.other) else None
+        return (
+            self
+            if (self.functions or self.classes or self.imports or self.other)
+            else None
+        )
 
 
 class ModulesPyfference:  # pylint: disable=too-few-public-methods
@@ -60,13 +63,13 @@ class ModulesPyfference:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        removed: Dict[pathlib.Path, ModuleSummary],
-        changed: Dict[pathlib.Path, ModulePyfference],
-        new: Dict[pathlib.Path, ModuleSummary],
+        removed: dict[pathlib.Path, ModuleSummary],
+        changed: dict[pathlib.Path, ModulePyfference],
+        new: dict[pathlib.Path, ModuleSummary],
     ) -> None:
-        self.removed: Dict[pathlib.Path, ModuleSummary] = removed
-        self.changed: Dict[pathlib.Path, ModulePyfference] = changed
-        self.new: Dict[pathlib.Path, ModuleSummary] = new
+        self.removed: dict[pathlib.Path, ModuleSummary] = removed
+        self.changed: dict[pathlib.Path, ModulePyfference] = changed
+        self.new: dict[pathlib.Path, ModuleSummary] = new
 
     def __str__(self):
         lines = []
@@ -80,21 +83,24 @@ class ModulesPyfference:  # pylint: disable=too-few-public-methods
             lines.append(
                 "\n".join(
                     [
-                        f"Module {hl(module)} changed:\n  " + str(change).replace("\n", "\n  ")
+                        f"Module {hl(module)} changed:\n  "
+                        + str(change).replace("\n", "\n  ")
                         for module, change in sorted(self.changed.items())
                     ]
                 )
             )
 
         if self.new:
-            lines.append(f"New {pluralize('module', self.new)} {hlistify(sorted(self.new))}")
+            lines.append(
+                f"New {pluralize('module', self.new)} {hlistify(sorted(self.new))}"
+            )
 
         return "\n".join(lines)
 
     def __repr__(self):
         return (
-            f"ModulesPyfference(removed={repr(self.removed)}, "
-            f"changed={repr(self.changed)}, new={repr(self.new)})"
+            f"ModulesPyfference(removed={self.removed!r}, "
+            f"changed={self.changed!r}, new={self.new!r})"
         )
 
     def __bool__(self):
@@ -106,7 +112,7 @@ def summarize_module(module: pathlib.Path) -> ModuleSummary:
     return ModuleSummary(name=module.name, node=ast.parse(module.read_text()))
 
 
-def pyff_module(old: ModuleSummary, new: ModuleSummary) -> Optional[ModulePyfference]:
+def pyff_module(old: ModuleSummary, new: ModuleSummary) -> ModulePyfference | None:
     """Return difference between two Python modules, or None if they are identical"""
     old_imports = pi.ImportedNames.extract(old.node)
     new_imports = pi.ImportedNames.extract(new.node)
@@ -116,13 +122,12 @@ def pyff_module(old: ModuleSummary, new: ModuleSummary) -> Optional[ModulePyffer
 
     if imports or classes or functions:
         LOGGER.debug("Modules differ")
-        pyfference = ModulePyfference(imports, classes, functions)
-        return pyfference
+        return ModulePyfference(imports, classes, functions)
 
     LOGGER.debug("Modules are identical")
     return None
 
 
-def pyff_module_path(old: pathlib.Path, new: pathlib.Path) -> Optional[ModulePyfference]:
+def pyff_module_path(old: pathlib.Path, new: pathlib.Path) -> ModulePyfference | None:
     """Return difference between two Python modules, or None if they are identical"""
     return pyff_module(summarize_module(old), summarize_module(new))

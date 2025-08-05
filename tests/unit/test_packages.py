@@ -30,7 +30,9 @@ class TestPackagesPyfference:
         path = pathlib.Path("path/to/package")
         inner_change = MagicMock(spec=pp.PackagePyfference)
         inner_change.__str__.return_value = "Total rewrite"
-        change = pp.PackagesPyfference(changed={path: inner_change}, removed=None, new=None)
+        change = pp.PackagesPyfference(
+            changed={path: inner_change}, removed=None, new=None
+        )
         assert change
         assert path in change.changed
         assert str(change) == "Package ``path/to/package'' changed:\n  Total rewrite"

@@ -1,14 +1,17 @@
 """This module contains code that handles comparing packages"""
+
+from __future__ import annotations
+
+import ast
+from collections.abc import Iterable, Mapping
 import logging
 import pathlib
-import ast
-
-from typing import Optional, Iterable, FrozenSet, Set, Dict, Mapping
 from types import MappingProxyType
+
 from astroid.modutils import get_module_files
 
-import pyff.modules as pm
 from pyff.kitchensink import hl, hlistify, pluralize
+import pyff.modules as pm
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,14 +26,14 @@ class PackageSummary:  # pylint: disable=too-few-public-methods
 class PackagePyfference:  # pylint: disable=too-few-public-methods
     """Holds differences between two Python packages"""
 
-    def __init__(self, modules: Optional[pm.ModulesPyfference]) -> None:
-        self.modules: Optional[pm.ModulesPyfference] = modules
+    def __init__(self, modules: pm.ModulesPyfference | None) -> None:
+        self.modules: pm.ModulesPyfference | None = modules
 
     def __str__(self):
         return str(self.modules)
 
     def __repr__(self):
-        return f"PackagePyfference(modules={repr(self.modules)})"
+        return f"PackagePyfference(modules={self.modules!r})"
 
 
 class PackagesPyfference:  # pylint: disable=too-few-public-methods
@@ -38,13 +41,13 @@ class PackagesPyfference:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        removed: Dict[pathlib.Path, PackageSummary],
-        changed: Dict[pathlib.Path, PackagePyfference],
-        new: Dict[pathlib.Path, PackageSummary],
+        removed: dict[pathlib.Path, PackageSummary],
+        changed: dict[pathlib.Path, PackagePyfference],
+        new: dict[pathlib.Path, PackageSummary],
     ) -> None:
-        self._removed: Dict[pathlib.Path, PackageSummary] = removed
-        self._changed: Dict[pathlib.Path, PackagePyfference] = changed
-        self._new: Dict[pathlib.Path, PackageSummary] = new
+        self._removed: dict[pathlib.Path, PackageSummary] = removed
+        self._changed: dict[pathlib.Path, PackagePyfference] = changed
+        self._new: dict[pathlib.Path, PackageSummary] = new
 
     @property
     def removed(self) -> Mapping[pathlib.Path, PackageSummary]:
@@ -64,13 +67,16 @@ class PackagesPyfference:  # pylint: disable=too-few-public-methods
     def __str__(self):
         lines = []
         if self._removed:
-            lines.append(f"Removed {pluralize('package', self._removed)} {hlistify(self._removed)}")
+            lines.append(
+                f"Removed {pluralize('package', self._removed)} {hlistify(self._removed)}"
+            )
 
         if self._changed:
             lines.append(
                 "\n".join(
                     [
-                        f"Package {hl(package)} changed:\n  " + str(change).replace("\n", "\n  ")
+                        f"Package {hl(package)} changed:\n  "
+                        + str(change).replace("\n", "\n  ")
                         for package, change in self._changed.items()
                     ]
                 )
@@ -85,14 +91,18 @@ class PackagesPyfference:  # pylint: disable=too-few-public-methods
         return bool(self._removed or self._changed or self._new)
 
 
-def extract_modules(files: Iterable[pathlib.Path], package: PackageSummary) -> FrozenSet[str]:
+def extract_modules(
+    files: Iterable[pathlib.Path], package: PackageSummary
+) -> frozenset[str]:
     """Extract direct modules of a packages (i.e. not modules of subpackages"""
-    return frozenset({module.name for module in files if module.parents[0] == package.path})
+    return frozenset(
+        {module.name for module in files if module.parents[0] == package.path}
+    )
 
 
 def _compare_module_in_packages(
     module: pathlib.Path, old_package: PackageSummary, new_package: PackageSummary
-) -> Optional[pm.ModulePyfference]:
+) -> pm.ModulePyfference | None:
     """Compare one module in two packages"""
     old_module = old_package.path / module
     new_module = new_package.path / module
@@ -108,7 +118,9 @@ def summarize_package(package: pathlib.Path) -> PackageSummary:
     return PackageSummary(package)
 
 
-def _summarize_module_in_package(module: pathlib.Path, package: PackageSummary) -> pm.ModuleSummary:
+def _summarize_module_in_package(
+    module: pathlib.Path, package: PackageSummary
+) -> pm.ModuleSummary:
     full_path = package.path / module
     module_ast = ast.parse(full_path.read_text())
     return pm.ModuleSummary(str(module), module_ast)
@@ -116,22 +128,22 @@ def _summarize_module_in_package(module: pathlib.Path, package: PackageSummary) 
 
 def pyff_package(
     old_package: PackageSummary, new_package: PackageSummary
-) -> Optional[PackagePyfference]:
+) -> PackagePyfference | None:
     """Given summaries of two versions of a package, return differences between them"""
-    old_files: Set[pathlib.Path] = {
+    old_files: set[pathlib.Path] = {
         pathlib.Path(module) for module in get_module_files(old_package.path, ())
     }
-    new_files: Set[pathlib.Path] = {
+    new_files: set[pathlib.Path] = {
         pathlib.Path(module) for module in get_module_files(new_package.path, ())
     }
 
     LOGGER.debug("Files of the old package %s: %s", str(old_package.path), old_files)
     LOGGER.debug("Files of the new package %s: %s", str(new_package.path), new_files)
 
-    old_modules: Set[pathlib.Path] = {
+    old_modules: set[pathlib.Path] = {
         pathlib.Path(module) for module in extract_modules(old_files, old_package)
     }
-    new_modules: Set[pathlib.Path] = {
+    new_modules: set[pathlib.Path] = {
         pathlib.Path(module) for module in extract_modules(new_files, new_package)
     }
 
@@ -149,7 +161,9 @@ def pyff_package(
     removed_summaries = {
         module: _summarize_module_in_package(module, old_package) for module in removed
     }
-    new_summaries = {module: _summarize_module_in_package(module, new_package) for module in new}
+    new_summaries = {
+        module: _summarize_module_in_package(module, new_package) for module in new
+    }
     changed = {
         module: change
         for module, change in [
@@ -166,7 +180,7 @@ def pyff_package(
     return None
 
 
-def pyff_package_path(old: pathlib.Path, new: pathlib.Path) -> Optional[PackagePyfference]:
+def pyff_package_path(old: pathlib.Path, new: pathlib.Path) -> PackagePyfference | None:
     """Given *paths* to two versions of a package, return differences between them"""
     old_summary = summarize_package(old)
     new_summary = summarize_package(new)

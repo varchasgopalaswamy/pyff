@@ -19,7 +19,9 @@ class TestImportedName:
 
     def test_importfrom(self):
         alias = ast.alias(name="path", asname=None)
-        name = pi.ImportedName("path", ast.ImportFrom(module="os", level=0, names=[alias]), alias)
+        name = pi.ImportedName(
+            "path", ast.ImportFrom(module="os", level=0, names=[alias]), alias
+        )
         assert name.name == "path"
         assert name.node.module == "os"
         assert name.node.names[0].name == "path"
@@ -31,30 +33,44 @@ class TestImportedName:
 
     def test_fqdn_imports(self):
         simple = ast.alias(name="os", asname=None)
-        assert pi.ImportedName("os", ast.Import(names=[simple]), simple).canonical_name == "os"
+        assert (
+            pi.ImportedName("os", ast.Import(names=[simple]), simple).canonical_name
+            == "os"
+        )
 
         module = ast.alias(name="os.path", asname=None)
         module_name = pi.ImportedName("os.path", ast.Import(names=[module]), module)
         assert module_name.canonical_name == "os.path"
 
         alias = ast.alias(name="os.path", asname="path")
-        assert pi.ImportedName("path", ast.Import(names=[alias]), alias).canonical_name == "os.path"
+        assert (
+            pi.ImportedName("path", ast.Import(names=[alias]), alias).canonical_name
+            == "os.path"
+        )
 
     def test_fqast_imports(self):
         simple = ast.alias(name="os", asname=None)
-        node_ast = ast.dump(pi.ImportedName("os", ast.Import(names=[simple]), simple).canonical_ast)
+        node_ast = ast.dump(
+            pi.ImportedName("os", ast.Import(names=[simple]), simple).canonical_ast
+        )
         assert node_ast == "Name(id='os', ctx=Load())"
 
         module = ast.alias(name="os.path", asname=None)
         module_name = pi.ImportedName("os.path", ast.Import(names=[module]), module)
         module_ast = ast.dump(module_name.canonical_ast)
-        assert module_ast == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        assert (
+            module_ast
+            == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        )
 
         alias = ast.alias(name="os.path", asname="path")
         alias_ast = ast.dump(
             pi.ImportedName("path", ast.Import(names=[alias]), alias).canonical_ast
         )
-        assert alias_ast == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        assert (
+            alias_ast
+            == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        )
 
     def test_fqdn_importfrom(self):
         # 'from os import path'
@@ -64,7 +80,10 @@ class TestImportedName:
 
         module = ast.alias(name="four", asname=None)
         module_name = ast.ImportFrom(module="one.two.three", names=[module])
-        assert pi.ImportedName("four", module_name, module).canonical_name == "one.two.three.four"
+        assert (
+            pi.ImportedName("four", module_name, module).canonical_name
+            == "one.two.three.four"
+        )
 
         alias = ast.alias(name="fourth_module", asname="four")
         alias_name = ast.ImportFrom(module="one.two.three", names=[alias])
@@ -75,9 +94,14 @@ class TestImportedName:
 
     def test_fqast_importfrom(self):
         simple = ast.alias(name="path", asname=None)
-        simple_name = pi.ImportedName("path", ast.ImportFrom(module="os", names=[simple]), simple)
+        simple_name = pi.ImportedName(
+            "path", ast.ImportFrom(module="os", names=[simple]), simple
+        )
         simple_ast = ast.dump(simple_name.canonical_ast)
-        assert simple_ast == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        assert (
+            simple_ast
+            == "Attribute(value=Name(id='os', ctx=Load()), attr='path', ctx=Load())"
+        )
 
         module = ast.alias(name="four", asname=None)
         module_node = ast.ImportFrom(module="one.two.three", names=[module])
@@ -115,7 +139,10 @@ class TestImportedNames:
         names = pi.ImportedNames()
         names.add_import(
             ast.Import(
-                names=[ast.alias(name="os", asname=None), ast.alias(name="sys", asname=None)]
+                names=[
+                    ast.alias(name="os", asname=None),
+                    ast.alias(name="sys", asname=None),
+                ]
             )
         )
         names.add_import(ast.Import(names=[ast.alias(name="ast", asname=None)]))
@@ -133,11 +160,16 @@ class TestImportedNames:
             ast.ImportFrom(
                 module="os",
                 level=0,
-                names=[ast.alias(name="path", asname=None), ast.alias(name="environ", asname=None)],
+                names=[
+                    ast.alias(name="path", asname=None),
+                    ast.alias(name="environ", asname=None),
+                ],
             )
         )
         names.add_importfrom(
-            ast.ImportFrom(module="sys", level=0, names=[ast.alias(name="exit", asname=None)])
+            ast.ImportFrom(
+                module="sys", level=0, names=[ast.alias(name="exit", asname=None)]
+            )
         )
         assert len(names) == 3
         assert "path" in names
@@ -205,7 +237,9 @@ class TestImportedNamesCompare:
         change_with_comma = pi.ImportedNames.compare(old, new_with_comma)
         assert len(change_with_comma.fromimports.new) == 1
         assert not change.fromimports.new_modules
-        assert change_with_comma.fromimports.new["os"].pop().canonical_name == "os.environ"
+        assert (
+            change_with_comma.fromimports.new["os"].pop().canonical_name == "os.environ"
+        )
 
     def test_removed_importfrom(self):
         old = parse_imports("from os import path; from os import environ")
@@ -220,7 +254,10 @@ class TestImportedNamesCompare:
         change_with_comma = pi.ImportedNames.compare(old_with_comma, new)
         assert len(change_with_comma.fromimports.removed) == 1
         assert not change.fromimports.removed_modules
-        assert change_with_comma.fromimports.removed["os"].pop().canonical_name == "os.environ"
+        assert (
+            change_with_comma.fromimports.removed["os"].pop().canonical_name
+            == "os.environ"
+        )
 
     def test_new_importfrom_module(self):
         old = parse_imports("from os import path")
@@ -252,14 +289,18 @@ class TestFromImportPyfference:
     def test_new(self, change):
         alias = ast.alias(name="path", asname=None)
         change.add_new(
-            pi.ImportedName("path", ast.ImportFrom(module="os", level=0, names=[alias]), alias)
+            pi.ImportedName(
+                "path", ast.ImportFrom(module="os", level=0, names=[alias]), alias
+            )
         )
         assert change.new["os"] is not None
 
     def test_removed(self, change):
         alias = ast.alias(name="path", asname=None)
         change.add_removed(
-            pi.ImportedName("path", ast.ImportFrom(module="os", level=0, names=[alias]), alias)
+            pi.ImportedName(
+                "path", ast.ImportFrom(module="os", level=0, names=[alias]), alias
+            )
         )
         assert change.removed["os"] is not None
 
@@ -267,7 +308,9 @@ class TestFromImportPyfference:
         change.add_new_modules({"os", "awsum"})
         alias = ast.alias(name="path", asname=None)
         change.add_new(
-            pi.ImportedName("path", ast.ImportFrom(module="os", level=0, names=[alias]), alias)
+            pi.ImportedName(
+                "path", ast.ImportFrom(module="os", level=0, names=[alias]), alias
+            )
         )
         assert change.new_modules == {"awsum", "os"}
         assert change.new
@@ -293,9 +336,13 @@ class TestImportsPyfference:
         old = parse_imports("")
         new_one = parse_imports("import one")
         new_more = parse_imports("import one, two")
-        assert str(pi.ImportedNames.compare(old, new_one)) == "New imported package ``one''"
         assert (
-            str(pi.ImportedNames.compare(old, new_more)) == "New imported packages ``one'', ``two''"
+            str(pi.ImportedNames.compare(old, new_one))
+            == "New imported package ``one''"
+        )
+        assert (
+            str(pi.ImportedNames.compare(old, new_more))
+            == "New imported packages ``one'', ``two''"
         )
 
     def test_message_remove_import(self):
@@ -303,7 +350,10 @@ class TestImportsPyfference:
         new_one = parse_imports("import one")
         new_more = parse_imports("")
 
-        assert str(pi.ImportedNames.compare(old, new_one)) == "Removed import of package ``two''"
+        assert (
+            str(pi.ImportedNames.compare(old, new_one))
+            == "Removed import of package ``two''"
+        )
         assert (
             str(pi.ImportedNames.compare(old, new_more))
             == "Removed import of packages ``one'', ``two''"
@@ -313,7 +363,10 @@ class TestImportsPyfference:
         old = parse_imports("from module import one")
         new_one = parse_imports("from module import one, two")
         new_more = parse_imports("from module import one, two, three")
-        assert str(pi.ImportedNames.compare(old, new_one)) == "New imported ``two'' from ``module''"
+        assert (
+            str(pi.ImportedNames.compare(old, new_one))
+            == "New imported ``two'' from ``module''"
+        )
         assert (
             str(pi.ImportedNames.compare(old, new_more))
             == "New imported ``three'', ``two'' from ``module''"

@@ -44,7 +44,6 @@ class TestPyffGitRevision:
             fs.create_file("package/__init__.py")
 
         with patch("git.Repo.clone_from") as fake_clone:
-
             fake_clone.side_effect = self._make_fake_clone(
                 fs, {"old": checkout_old, "new": checkout_new}
             )

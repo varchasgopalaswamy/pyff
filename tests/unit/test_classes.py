@@ -11,7 +11,9 @@ from helpers import parse_imports
 
 class TestPyffClass:
     @staticmethod
-    def _make_summary(classname: str, code: str) -> Tuple[pc.ClassSummary, pi.ImportedNames]:
+    def _make_summary(
+        classname: str, code: str
+    ) -> Tuple[pc.ClassSummary, pi.ImportedNames]:
         import_walker = pi.ImportExtractor()
         code_ast = ast.parse(code)
         import_walker.visit(code_ast)
@@ -59,7 +61,9 @@ class TestClassPyfference:
 class TestClassSummary:
     @fixture
     def classdef(self):
-        return ast.ClassDef(name="Klass", bases=[], keywords=[], body=[], decorator_list=[])
+        return ast.ClassDef(
+            name="Klass", bases=[], keywords=[], body=[], decorator_list=[]
+        )
 
     def test_class_summary(self, classdef):
         cls = pc.ClassSummary(
@@ -85,7 +89,9 @@ class TestClassSummary:
         assert cls.attributes == {"attrib", "field"}
 
     def test_singular(self, classdef):
-        cls = pc.ClassSummary(methods={"__init__", "a"}, definition=classdef, attributes=set())
+        cls = pc.ClassSummary(
+            methods={"__init__", "a"}, definition=classdef, attributes=set()
+        )
         assert str(cls) == "class ``Klass'' with 1 public method"
 
     def test_baseclasses(self):
@@ -108,7 +114,8 @@ class TestClassSummary:
             attributes=set(),
         )
         assert (
-            str(local) == "class ``Klass'' derived from local ``LocalClass'' with 0 public methods"
+            str(local)
+            == "class ``Klass'' derived from local ``LocalClass'' with 0 public methods"
         )  # pylint: disable=line-too-long
         assert (
             str(imported)
@@ -132,7 +139,10 @@ class TestAttributesPyfference:
         assert change
         assert change.new == {"super", "duper"}
         assert change.removed == {"gone"}
-        assert str(change) == "Removed attribute ``gone''\nNew attributes ``duper'', ``super''"
+        assert (
+            str(change)
+            == "Removed attribute ``gone''\nNew attributes ``duper'', ``super''"
+        )
 
     def test_empty(self):
         change = pc.AttributesPyfference(removed=set(), new=set())
@@ -145,7 +155,7 @@ class TestClassesExtractor:
         return pc.ClassesExtractor()
 
     def test_extract_single_class(self, extractor):
-        cls = ast.parse("class Klass:\n" "    pass")
+        cls = ast.parse("class Klass:\n    pass")
         extractor.visit(cls)
         assert extractor.classnames == {"Klass"}
         assert len(extractor.classes) == 1
@@ -154,7 +164,7 @@ class TestClassesExtractor:
         assert str(summary) == "class ``Klass'' with 0 public methods"
 
     def test_extract_multiple_classes(self, extractor):
-        cls = ast.parse("class Klass:\n" "    pass\n" "class AnotherKlass:\n" "    pass")
+        cls = ast.parse("class Klass:\n    pass\nclass AnotherKlass:\n    pass")
         extractor.visit(cls)
         assert extractor.classnames == {"Klass", "AnotherKlass"}
         assert len(extractor.classes) == 2
@@ -179,7 +189,7 @@ class TestClassesExtractor:
 
     def test_extract_local_baseclass(self):
         code = (
-            "import os\n" "class BaseKlass:\n" "    pass\n" "class Klass(BaseKlass):\n" "    pass\n"
+            "import os\nclass BaseKlass:\n    pass\nclass Klass(BaseKlass):\n    pass\n"
         )
         names = parse_imports(code)
         extractor = pc.ClassesExtractor(names)
@@ -187,11 +197,12 @@ class TestClassesExtractor:
         assert len(extractor.classes) == 2
         summary = extractor.classes["Klass"]
         assert (
-            str(summary) == "class ``Klass'' derived from local ``BaseKlass'' with 0 public methods"
+            str(summary)
+            == "class ``Klass'' derived from local ``BaseKlass'' with 0 public methods"
         )
 
     def test_extract_external_baseclass(self):
-        code = "from module import BaseKlass\n" "class Klass(BaseKlass):\n" "    pass"
+        code = "from module import BaseKlass\nclass Klass(BaseKlass):\n    pass"
         names = parse_imports(code)
         extractor = pc.ClassesExtractor(names)
         extractor.visit(ast.parse(code))
@@ -203,7 +214,9 @@ class TestClassesExtractor:
         )
 
     def test_extract_attribute(self, extractor):
-        klass = ast.parse("class Klass:\n  def __init__(self, value):\n    self.attribute = value")
+        klass = ast.parse(
+            "class Klass:\n  def __init__(self, value):\n    self.attribute = value"
+        )
         extractor.visit(klass)
         summary = extractor.classes["Klass"]
         assert summary.attributes == {"attribute"}
@@ -221,7 +234,7 @@ class TestClassesPyfference:
     def test_new_classes(self):
         cpyff = pc.ClassesPyfference(new={"NewClass2", "NewClass"}, changed=set())
         assert cpyff.new == {"NewClass", "NewClass2"}
-        assert str(cpyff) == ("New NewClass\n" "New NewClass2")
+        assert str(cpyff) == ("New NewClass\nNew NewClass2")
 
     def test_simplify(self):
         change = pc.ClassesPyfference(new=set(), changed=set())
@@ -230,18 +243,18 @@ class TestClassesPyfference:
 
 class TestPyffClasses:
     def test_new_classes(self):
-        old = ast.parse("class Klass:\n" "    pass")
-        new = ast.parse("class Klass:\n" "    pass\n" "class NewKlass:\n" "    pass")
+        old = ast.parse("class Klass:\n    pass")
+        new = ast.parse("class Klass:\n    pass\nclass NewKlass:\n    pass")
         old_imports = pi.ImportedNames.extract(old)
         new_imports = pi.ImportedNames.extract(new)
         change = pc.pyff_classes(old, new, old_imports, new_imports)
         assert change is not None
         assert len(change.new) == 1
-        newcls, = change.new
+        (newcls,) = change.new
         assert newcls.name == "NewKlass"
 
     def test_same(self):
-        cls = "class Klass:\n" "    pass"
+        cls = "class Klass:\n    pass"
         imports = pi.ImportedNames.extract(ast.parse(cls))
         change = pc.pyff_classes(ast.parse(cls), ast.parse(cls), imports, imports)
         assert change is None

@@ -1,11 +1,12 @@
 """This module contains code that handles comparing revisions in Git repository"""
 
-import tempfile
-import shutil
-import pathlib
-from typing import Optional
-import git
+from __future__ import annotations
 
+import pathlib
+import shutil
+import tempfile
+
+import git
 
 import pyff.directories as pd
 import pyff.packages as pp
@@ -23,12 +24,14 @@ class RevisionsPyfference:  # pylint: disable=too-few-public-methods
         return str(self._change)
 
     @property
-    def packages(self) -> Optional[pp.PackagesPyfference]:
+    def packages(self) -> pp.PackagesPyfference | None:
         """Return what Python packages differ between revisions"""
         return self._change.packages
 
 
-def pyff_git_revision(repository: str, old: str, new: str) -> Optional[RevisionsPyfference]:
+def pyff_git_revision(
+    repository: str, old: str, new: str
+) -> RevisionsPyfference | None:
     """Compare two revisions in a Git repository"""
     with tempfile.TemporaryDirectory() as temporary_wd:
         working_directory = pathlib.Path(temporary_wd)

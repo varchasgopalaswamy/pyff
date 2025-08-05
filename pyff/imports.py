@@ -1,13 +1,17 @@
 """This module contains code that handles comparing imports"""
 
-import collections.abc
-import types
-from typing import Set, Dict, Union, Optional, FrozenSet, Mapping, cast
+from __future__ import annotations
+
 import ast
+import collections.abc
+from collections.abc import Mapping
 import logging
+import types
+from typing import cast
+
 from pyff.kitchensink import hl, hlistify, pluralize
 
-ImportNode = Union[ast.Import, ast.ImportFrom]  # pylint: disable=invalid-name
+ImportNode = ast.Import | ast.ImportFrom
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,17 +42,18 @@ class ImportedName:
         Example: For 'join' imported by 'from os.path import join', returns 'os.path.join'"""
         if isinstance(self.node, ast.Import):
             return self.alias.name
-        elif isinstance(self.node, ast.ImportFrom):
+        if isinstance(self.node, ast.ImportFrom):
             return f"{self.node.module}.{self.alias.name}"
 
-        raise Exception("Node should always be one of {Import, ImportFrom}")  # pragma: no cover
+        msg = "Node should always be one of {Import, ImportFrom}"
+        raise Exception(msg)  # pragma: no cover
 
     @property
-    def canonical_ast(self) -> Union[ast.Name, ast.Attribute]:
+    def canonical_ast(self) -> ast.Name | ast.Attribute:
         """Returns AST node for the full name
 
         Example: For 'join' imported by 'from os.path import join', returns AST of 'os.path.join'"""
-        node: Union[ast.Name, ast.Attribute]
+        node: ast.Name | ast.Attribute
 
         if isinstance(self.node, ast.Import):
             items = self.alias.name.split(".")
@@ -56,18 +61,18 @@ class ImportedName:
             while items:
                 node = ast.Attribute(value=node, attr=items.pop(0), ctx=ast.Load())
             return node
-        elif isinstance(self.node, ast.ImportFrom):
+        if isinstance(self.node, ast.ImportFrom):
             if self.node.module is None:
-                raise Exception(
-                    "ast.ImportFrom has module attribute set to None"
-                )  # pragma: no cover
+                msg = "ast.ImportFrom has module attribute set to None"
+                raise Exception(msg)  # pragma: no cover
             items = self.node.module.split(".") + [self.alias.name]
             node = ast.Name(id=items.pop(0), ctx=ast.Load())
             while items:
                 node = ast.Attribute(value=node, attr=items.pop(0), ctx=ast.Load())
             return node
 
-        raise Exception("Node should always be one of {Import, ImportFrom}")  # pragma: no cover
+        msg = "Node should always be one of {Import, ImportFrom}"
+        raise Exception(msg)  # pragma: no cover
 
     def __str__(self):
         return self.name
@@ -77,42 +82,42 @@ class FromImportPyfference:
     """Represents difference in `from X import Y` between two ImportedNames"""
 
     def __init__(self):
-        self._new: Dict[str, Set[ImportedName]] = {}
-        self._removed: Dict[str, Set[ImportedName]] = {}
-        self._new_modules: Set[str] = set()
-        self._removed_modules: Set[str] = set()
+        self._new: dict[str, set[ImportedName]] = {}
+        self._removed: dict[str, set[ImportedName]] = {}
+        self._new_modules: set[str] = set()
+        self._removed_modules: set[str] = set()
 
     @property
-    def new(self) -> Mapping[str, Set[ImportedName]]:
+    def new(self) -> Mapping[str, set[ImportedName]]:
         """Returns a read-only mapping of new imported-from names"""
         return types.MappingProxyType(self._new)
 
     @property
-    def removed(self) -> Mapping[str, Set[ImportedName]]:
+    def removed(self) -> Mapping[str, set[ImportedName]]:
         """Returns a read-only mapping of removed imported-from names"""
         return types.MappingProxyType(self._removed)
 
     @property
-    def new_modules(self) -> FrozenSet[str]:
+    def new_modules(self) -> frozenset[str]:
         """Returns a read-only set of new modules imported via `from X import Y` statements"""
         return frozenset(self._new_modules)
 
     @property
-    def removed_modules(self) -> FrozenSet[str]:
+    def removed_modules(self) -> frozenset[str]:
         """Returns a read-only set of removed modules imported via `from X import Y` statements"""
         return frozenset(self._removed_modules)
 
     def add_new(self, node: ImportedName) -> None:
         """Add new name imported by `from X import y` statement"""
         if not node.is_import_from():
-            raise ValueError(
-                "FromImportPyfference can only handle ImportFrom nodes"
-            )  # pragma: no cover
+            msg = "FromImportPyfference can only handle ImportFrom nodes"
+            raise ValueError(msg)  # pragma: no cover
 
         module = cast(ast.ImportFrom, node.node).module
 
         if module is None:
-            raise Exception("ast.ImportFrom has `module` attribute set to None")  # pragma: no cover
+            msg = "ast.ImportFrom has `module` attribute set to None"
+            raise Exception(msg)  # pragma: no cover
 
         if module not in self._new:
             self._new[module] = set()
@@ -121,23 +126,23 @@ class FromImportPyfference:
     def add_removed(self, node: ImportedName) -> None:
         """Add removed name imported by `from X import y` statement"""
         if not node.is_import_from():
-            raise ValueError(
-                "FromImportPyfference can only handle ImportFrom nodes"
-            )  # pragma: no cover
+            msg = "FromImportPyfference can only handle ImportFrom nodes"
+            raise ValueError(msg)  # pragma: no cover
 
         module = cast(ast.ImportFrom, node.node).module
         if module is None:
-            raise Exception("ast.ImportFrom has `module` attribute set to None")  # pragma: no cover
+            msg = "ast.ImportFrom has `module` attribute set to None"
+            raise Exception(msg)  # pragma: no cover
 
         if module not in self._removed:
             self._removed[module] = set()
         self._removed[module].add(node)
 
-    def add_new_modules(self, modules: Set[str]) -> None:
+    def add_new_modules(self, modules: set[str]) -> None:
         """Add new modules imported via `from X import Y` statements"""
         self._new_modules.update(modules)
 
-    def add_removed_modules(self, modules: Set[str]) -> None:
+    def add_removed_modules(self, modules: set[str]) -> None:
         """Add removed modules imported via `from X import Y` statements"""
         self._removed_modules.update(modules)
 
@@ -154,41 +159,41 @@ class FromImportPyfference:
             del self._removed[module]
 
     def __bool__(self):
-        return bool(self._new or self.removed or self.new_modules or self.removed_modules)
+        return bool(
+            self._new or self.removed or self.new_modules or self.removed_modules
+        )
 
 
 class ImportsPyfference:
     """Represent difference between two ImportedNames."""
 
     def __init__(self):
-        self._new_imports: Set[ImportedName] = set()
-        self._removed_imports: Set[ImportedName] = set()
+        self._new_imports: set[ImportedName] = set()
+        self._removed_imports: set[ImportedName] = set()
         self.fromimports: FromImportPyfference = FromImportPyfference()
-        self._changed_to_fromimport: Dict[str, Set[ImportedName]] = {}
-        self._changed_to_import: Dict[str, Set[ImportedName]] = {}
+        self._changed_to_fromimport: dict[str, set[ImportedName]] = {}
+        self._changed_to_import: dict[str, set[ImportedName]] = {}
 
     def __bool__(self):
         return bool(
-            (
-                self._new_imports
-                or self._removed_imports
-                or self.fromimports
-                or self._changed_to_fromimport
-                or self._changed_to_import
-            )
+            self._new_imports
+            or self._removed_imports
+            or self.fromimports
+            or self._changed_to_fromimport
+            or self._changed_to_import
         )
 
     @property
-    def new_imports(self) -> FrozenSet[ImportedName]:
+    def new_imports(self) -> frozenset[ImportedName]:
         """Returns a read-only set of new imported names"""
         return frozenset(self._new_imports)
 
     @property
-    def removed_imports(self) -> FrozenSet[ImportedName]:
+    def removed_imports(self) -> frozenset[ImportedName]:
         """Returns a read-only set of removed imported names"""
         return frozenset(self._removed_imports)
 
-    def simplify(self) -> Optional["ImportsPyfference"]:
+    def simplify(self) -> ImportsPyfference | None:
         """Cleans empty differences, empty sets etc. after manipulation"""
         return self if self else None
 
@@ -203,9 +208,8 @@ class ImportsPyfference:
     def new_from_import(self, node: ImportedName) -> None:
         """Add a new name imported via `from X import Y` statement"""
         if not node.is_import_from():
-            raise ValueError(
-                "ImportsPyfference.new_from_import can only handle ImportFrom nodes"
-            )  # pragma: no cover
+            msg = "ImportsPyfference.new_from_import can only handle ImportFrom nodes"
+            raise ValueError(msg)  # pragma: no cover
 
         if cast(ast.ImportFrom, node.node).module:
             self.fromimports.add_new(node)
@@ -213,18 +217,17 @@ class ImportsPyfference:
     def removed_from_import(self, node: ImportedName) -> None:
         """Add a removed name imported via `from X import Y` statement"""
         if not node.is_import_from():
-            raise ValueError(
-                "ImportsPyfference.new_from_import can only handle ImportFrom nodes"
-            )  # pragma: no cover
+            msg = "ImportsPyfference.new_from_import can only handle ImportFrom nodes"
+            raise ValueError(msg)  # pragma: no cover
 
         if cast(ast.ImportFrom, node.node).module:
             self.fromimports.add_removed(node)
 
-    def new_fromimport_modules(self, modules: Set[str]) -> None:
+    def new_fromimport_modules(self, modules: set[str]) -> None:
         """Add new modules imported via `from X import Y` statement"""
         self.fromimports.add_new_modules(modules)
 
-    def removed_fromimport_modules(self, modules: Set[str]) -> None:
+    def removed_fromimport_modules(self, modules: set[str]) -> None:
         """Add removed modules imported via `from X import Y` statement"""
         self.fromimports.add_removed_modules(modules)
 
@@ -274,14 +277,18 @@ class ImportsPyfference:
             removed_names = sorted([str(name) for name in names])
             hl_removed_names = hlistify(removed_names)
             if module in self.fromimports.removed_modules:
-                lines.append(f"Removed import of {hl_removed_names} from removed {hl(module)}")
+                lines.append(
+                    f"Removed import of {hl_removed_names} from removed {hl(module)}"
+                )
             else:
                 lines.append(f"Removed import of {hl_removed_names} from {hl(module)}")
 
         for module, names in self.fromimports.new.items():
             new_names = sorted([str(name) for name in names])
             if module in self.fromimports.new_modules:
-                lines.append(f"New imported {hlistify(new_names)} from new {hl(module)}")
+                lines.append(
+                    f"New imported {hlistify(new_names)} from new {hl(module)}"
+                )
             else:
                 lines.append(f"New imported {hlistify(new_names)} from {hl(module)}")
 
@@ -308,14 +315,14 @@ class ImportedNames(collections.abc.Mapping):  # pylint: disable=too-few-public-
     """Dictionary mapping external names to appropriate ImportedName"""
 
     @staticmethod
-    def extract(code: ast.Module) -> "ImportedNames":
+    def extract(code: ast.Module) -> ImportedNames:
         """Extracts ImportedNames from a Module"""
         import_walker = ImportExtractor()
         import_walker.visit(code)
         return import_walker.names
 
     @staticmethod
-    def compare(old: "ImportedNames", new: "ImportedNames") -> Optional[ImportsPyfference]:
+    def compare(old: ImportedNames, new: ImportedNames) -> ImportsPyfference | None:
         """Compare two sets of imported names."""
         LOGGER.debug("Comparing ImportedNames")
         change = ImportsPyfference()
@@ -336,10 +343,12 @@ class ImportedNames(collections.abc.Mapping):  # pylint: disable=too-few-public-
                     change.removed_from_import(node)
 
         change.new_fromimport_modules(new.from_modules - old.from_modules)
-        LOGGER.debug(f"New modules from which names were imported: " f"{change.fromimports.new}")
+        LOGGER.debug(
+            f"New modules from which names were imported: {change.fromimports.new}"
+        )
         change.removed_fromimport_modules(old.from_modules - new.from_modules)
         LOGGER.debug(
-            f"Removed modules from which names were imported: " f"{change.fromimports.removed}"
+            f"Removed modules from which names were imported: {change.fromimports.removed}"
         )
 
         change.reduce()
@@ -347,8 +356,8 @@ class ImportedNames(collections.abc.Mapping):  # pylint: disable=too-few-public-
         return change if change else None
 
     def __init__(self) -> None:
-        self.names: Dict[str, ImportedName] = {}
-        self.from_modules: Set[str] = set()
+        self.names: dict[str, ImportedName] = {}
+        self.from_modules: set[str] = set()
 
     def __getitem__(self, item):
         return self.names[item]
@@ -386,7 +395,7 @@ class ImportExtractor(ast.NodeVisitor):
 
     def __init__(self) -> None:
         self.names = ImportedNames()
-        super(ImportExtractor, self).__init__()
+        super().__init__()
 
     def visit_Import(self, node):  # pylint: disable=invalid-name
         """Save information about `import X, Y` statements"""
@@ -397,7 +406,7 @@ class ImportExtractor(ast.NodeVisitor):
         self.names.add_importfrom(node)
 
 
-def pyff_imports(old: ast.Module, new: ast.Module) -> Optional[ImportsPyfference]:
+def pyff_imports(old: ast.Module, new: ast.Module) -> ImportsPyfference | None:
     """Return differences in import statements in two modules"""
     old_walker = ImportExtractor()
     new_walker = ImportExtractor()
@@ -410,7 +419,7 @@ def pyff_imports(old: ast.Module, new: ast.Module) -> Optional[ImportsPyfference
     return difference if difference else None
 
 
-def pyff_imports_code(old_code: str, new_code: str) -> Optional[ImportsPyfference]:
+def pyff_imports_code(old_code: str, new_code: str) -> ImportsPyfference | None:
     """Return differences in import statements in two modules"""
     old_ast = ast.parse(old_code)
     new_ast = ast.parse(new_code)

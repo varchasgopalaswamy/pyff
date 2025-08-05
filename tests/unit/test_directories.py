@@ -80,7 +80,10 @@ class TestFindThosePythonz:
             pathlib.Path("somewhere/really/deep/is/a/package"),
             pathlib.Path("package"),
         }
-        assert modules == {pathlib.Path("somewhere/deep/is/a/module.py"), pathlib.Path("module.py")}
+        assert modules == {
+            pathlib.Path("somewhere/deep/is/a/module.py"),
+            pathlib.Path("module.py"),
+        }
 
 
 class TestPyffDirectory:

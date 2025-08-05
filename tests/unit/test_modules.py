@@ -61,11 +61,17 @@ class TestModulePyfference:
         imports = pi.ImportedNames.compare(old, new)
         functions = pf.FunctionsPyfference(
             new={
-                "function": pf.FunctionSummary("function", node=Mock(spec=ast.FunctionDef)),
-                "funktion": pf.FunctionSummary("funktion", node=Mock(spec=ast.FunctionDef)),
+                "function": pf.FunctionSummary(
+                    "function", node=Mock(spec=ast.FunctionDef)
+                ),
+                "funktion": pf.FunctionSummary(
+                    "funktion", node=Mock(spec=ast.FunctionDef)
+                ),
             },
             changed={
-                "name": pf.FunctionPyfference("name", old_name="old_name", implementation=set())
+                "name": pf.FunctionPyfference(
+                    "name", old_name="old_name", implementation=set()
+                )
             },
             removed={},
         )
@@ -96,8 +102,10 @@ class TestModulePyfference:
 class TestPyffModule:
     def test_sanity(self):
         old = ast.parse("")
-        new = ast.parse("import os\n" "class Klass:\n" "    pass\n" "def funktion():\n" "    pass")
-        change = pm.pyff_module(pm.ModuleSummary("module", old), pm.ModuleSummary("module", new))
+        new = ast.parse("import os\nclass Klass:\n    pass\ndef funktion():\n    pass")
+        change = pm.pyff_module(
+            pm.ModuleSummary("module", old), pm.ModuleSummary("module", new)
+        )
         assert change.imports is not None
         assert change.classes is not None
         assert change.functions is not None
@@ -106,7 +114,7 @@ class TestPyffModule:
         fs.create_file("old.py")
         fs.create_file("new.py")
         pathlib.Path("new.py").write_text(
-            "import os\n" "class Klass:\n" "    pass\n" "def funktion():\n" "    pass"
+            "import os\nclass Klass:\n    pass\ndef funktion():\n    pass"
         )
         change = pm.pyff_module_path(pathlib.Path("old.py"), pathlib.Path("new.py"))
         assert change.imports is not None
@@ -116,6 +124,6 @@ class TestPyffModule:
     def test_same(self):
         module = pm.ModuleSummary(
             "module",
-            ast.parse("import os\n" "class Klass:\n" "    pass\n" "def funktion():\n" "    pass"),
+            ast.parse("import os\nclass Klass:\n    pass\ndef funktion():\n    pass"),
         )
         assert pm.pyff_module(module, module) is None

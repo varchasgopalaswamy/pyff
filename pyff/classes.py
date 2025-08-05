@@ -1,9 +1,11 @@
 """This module contains code that handles comparing function implementations"""
 
+from __future__ import annotations
+
 import ast
+from collections.abc import Mapping
 import logging
 from types import MappingProxyType
-from typing import Dict, FrozenSet, List, Mapping, Optional, Set, Union
 
 import pyff.functions as pf
 import pyff.imports as pi
@@ -34,7 +36,7 @@ class ImportedBaseClass:
         return f"imported {hl(self.name)}"
 
 
-BaseClassType = Union[LocalBaseClass, ImportedBaseClass]  # pylint: disable=invalid-name
+BaseClassType = LocalBaseClass | ImportedBaseClass  # pylint: disable=invalid-name
 
 
 class ClassSummary:  # pylint: disable=too-few-public-methods
@@ -42,14 +44,14 @@ class ClassSummary:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        methods: Set[str],
+        methods: set[str],
         definition: ast.ClassDef,
-        attributes: Set[str],
-        baseclasses: Optional[List[BaseClassType]] = None,
+        attributes: set[str],
+        baseclasses: list[BaseClassType] | None = None,
     ) -> None:
-        self.methods: Set[str] = methods
+        self.methods: set[str] = methods
         self.attributes = frozenset(attributes)
-        self.baseclasses: Optional[List[BaseClassType]] = baseclasses
+        self.baseclasses: list[BaseClassType] | None = baseclasses
         self.definition = definition
 
     @property
@@ -58,14 +60,14 @@ class ClassSummary:  # pylint: disable=too-few-public-methods
         return self.definition.name
 
     @property
-    def public_methods(self) -> FrozenSet[str]:
+    def public_methods(self) -> frozenset[str]:
         """Return public methods of the class"""
         return frozenset(
             {method for method in self.methods if not method.startswith("_")}
         )
 
     @property
-    def private_methods(self) -> FrozenSet[str]:
+    def private_methods(self) -> frozenset[str]:
         """Return public methods of the class"""
         return frozenset({method for method in self.methods if method.startswith("_")})
 
@@ -77,10 +79,11 @@ class ClassSummary:  # pylint: disable=too-few-public-methods
 
         if not self.baseclasses:
             return f"{class_part} {method_part}"
-        elif len(self.baseclasses) == 1:
-            return f"{class_part} derived from {str(self.baseclasses[0])} {method_part}"
+        if len(self.baseclasses) == 1:
+            return f"{class_part} derived from {self.baseclasses[0]!s} {method_part}"
 
-        raise Exception("Multiple inheritance not yet implemented")
+        msg = "Multiple inheritance not yet implemented"
+        raise Exception(msg)
 
     def __lt__(self, other):
         return self.name < other.name
@@ -99,7 +102,7 @@ class ClassesExtractor(ast.NodeVisitor):
         """Extracts self attributes references used in the node"""
 
         def __init__(self):
-            self.attributes: Set[str] = set()
+            self.attributes: set[str] = set()
 
         def visit_Attribute(self, node):  # pylint: disable=invalid-name
             """self.attribute -> 'attribute'"""
@@ -110,7 +113,7 @@ class ClassesExtractor(ast.NodeVisitor):
         """Extracts self attributes used as assignment targets"""
 
         def __init__(self):
-            self.attributes: Set[str] = set()
+            self.attributes: set[str] = set()
             self.extractor = ClassesExtractor.SelfAttributeExtractor()
 
         def visit_Assign(self, node):  # pylint: disable=invalid-name
@@ -128,7 +131,7 @@ class ClassesExtractor(ast.NodeVisitor):
         """Extracts information about a method"""
 
         @staticmethod
-        def extract_attributes(node: ast.FunctionDef) -> FrozenSet[str]:
+        def extract_attributes(node: ast.FunctionDef) -> frozenset[str]:
             """Extract attributes used in the method"""
             LOGGER.debug("Extracting attributes from method '%s", node.name)
             extractor = ClassesExtractor.AssignmentExtractor()
@@ -139,8 +142,8 @@ class ClassesExtractor(ast.NodeVisitor):
             return frozenset(extractor.attributes)
 
         def __init__(self):
-            self.methods: Set[str] = set()
-            self.attributes: Set[str] = set()
+            self.methods: set[str] = set()
+            self.attributes: set[str] = set()
 
         def visit_FunctionDef(self, node):  # pylint: disable=invalid-name
             """Save counts of encountered private/public methods"""
@@ -148,9 +151,9 @@ class ClassesExtractor(ast.NodeVisitor):
             self.methods.add(node.name)
             self.attributes.update(self.extract_attributes(node))
 
-    def __init__(self, names: Optional[pi.ImportedNames] = None) -> None:
-        self._classes: Dict[str, ClassSummary] = {}
-        self._names: Optional[pi.ImportedNames] = names
+    def __init__(self, names: pi.ImportedNames | None = None) -> None:
+        self._classes: dict[str, ClassSummary] = {}
+        self._names: pi.ImportedNames | None = names
 
     @property
     def classes(self) -> Mapping[str, ClassSummary]:
@@ -158,7 +161,7 @@ class ClassesExtractor(ast.NodeVisitor):
         return MappingProxyType(self._classes)
 
     @property
-    def classnames(self) -> FrozenSet[str]:
+    def classnames(self) -> frozenset[str]:
         """Return a set of class names in the module"""
         return frozenset(self._classes.keys())
 
@@ -168,7 +171,6 @@ class ClassesExtractor(ast.NodeVisitor):
 
         extractor = ClassesExtractor.MethodExtractor()
         extractor.visit(node)
-
 
         summary = ClassSummary(
             extractor.methods,
@@ -182,12 +184,12 @@ class ClassesExtractor(ast.NodeVisitor):
 class AttributesPyfference:  # pylint: disable=too-few-public-methods
     """Represents differnces between attributes of two classes"""
 
-    def __init__(self, removed: FrozenSet[str], new: FrozenSet[str]) -> None:
-        self.removed: FrozenSet[str] = removed
-        self.new: FrozenSet[str] = new
+    def __init__(self, removed: frozenset[str], new: frozenset[str]) -> None:
+        self.removed: frozenset[str] = removed
+        self.new: frozenset[str] = new
 
     def __str__(self):
-        lines: List[str] = []
+        lines: list[str] = []
         if self.removed:
             lines.append(
                 f"Removed {pluralize('attribute', self.removed)} {hlistify(sorted(self.removed))}"
@@ -209,13 +211,13 @@ class ClassPyfference:  # pylint: disable=too-few-public-methods
     def __init__(
         self,
         name: str,
-        attributes: Optional[AttributesPyfference],
-        methods: Optional[pf.FunctionsPyfference],
+        attributes: AttributesPyfference | None,
+        methods: pf.FunctionsPyfference | None,
         decorators: bool = False,
         base_classes_changed: bool = False,
     ) -> None:
-        self.attributes: Optional[AttributesPyfference] = attributes
-        self.methods: Optional[pf.FunctionsPyfference] = methods
+        self.attributes: AttributesPyfference | None = attributes
+        self.methods: pf.FunctionsPyfference | None = methods
         self.name = name
         self.decorators = decorators
         self.base_classes_changed = base_classes_changed
@@ -239,17 +241,17 @@ class ClassesPyfference:  # pylint: disable=too-few-public-methods
     """Holds differences between classes defined in a module"""
 
     def __init__(
-        self, new: Set[ClassSummary], changed: Dict[str, ClassPyfference]
+        self, new: set[ClassSummary], changed: dict[str, ClassPyfference]
     ) -> None:
-        self.new: Set[ClassSummary] = new
-        self.changed: Dict[str, ClassPyfference] = changed
+        self.new: set[ClassSummary] = new
+        self.changed: dict[str, ClassPyfference] = changed
 
     def __str__(self):
         new = [f"New {cls}" for cls in sorted(self.new)]
         changed = [str(self.changed[name]) for name in sorted(self.changed)]
         return "\n".join(changed + new)
 
-    def simplify(self) -> Optional["ClassesPyfference"]:
+    def simplify(self) -> ClassesPyfference | None:
         """Cleans empty differences, empty sets etc. after manipulation"""
         return self if self.new else None
 
@@ -259,7 +261,7 @@ def pyff_class(
     new: ClassSummary,
     old_imports: pi.ImportedNames,
     new_imports: pi.ImportedNames,
-) -> Optional[ClassPyfference]:
+) -> ClassPyfference | None:
     """Return differences in two classes"""
     methods = pf.pyff_functions(
         old.definition, new.definition, old_imports, new_imports
@@ -293,7 +295,7 @@ def pyff_classes(
     new: ast.Module,
     old_imports: pi.ImportedNames,
     new_imports: pi.ImportedNames,
-) -> Optional[ClassesPyfference]:
+) -> ClassesPyfference | None:
     """Return differences in classes defined in two modules"""
     first_walker = ClassesExtractor(names=old_imports)
     second_walker = ClassesExtractor(names=new_imports)
@@ -301,7 +303,7 @@ def pyff_classes(
     first_walker.visit(old)
     second_walker.visit(new)
 
-    differences: Dict[str, ClassPyfference] = {}
+    differences: dict[str, ClassPyfference] = {}
     both = first_walker.classnames.intersection(second_walker.classnames)
     LOGGER.debug(f"Classes present in both module versions: {both}")
     for klass in both:

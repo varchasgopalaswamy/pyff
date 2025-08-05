@@ -49,7 +49,7 @@ select = [
     #"PD",
     #"ANN",
 ]
-extend-safe-fixes = ["EM102", "EM101", "SIM108", "RET504", "C408", "D200"]
+extend-safe-fixes = ["EM102", "EM101", "SIM108", "RET504", "C408", "D200", "UP007"]
 ignore = [
     "E501", # line-too-long
     "W291",
@@ -89,6 +89,7 @@ ignore = [
     #"UP046",
     #"UP047",
     "INP001",
+    "G004",
 ]
 exclude = ["*.pyi", "*.ipynb", "tests/*", "doc/*", "hooks/*"]
 

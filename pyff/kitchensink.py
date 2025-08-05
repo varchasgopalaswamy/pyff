@@ -1,7 +1,9 @@
 """Placeholders for various elements in output"""
 
+from __future__ import annotations
+
 import ast
-from typing import Iterable, Sized
+from collections.abc import Iterable, Sized
 
 from colorama import Fore, Style
 
@@ -21,19 +23,18 @@ def compare_ast(node1, node2):
             if not compare_ast(v, getattr(node2, k)):
                 return False
         return True
-    elif isinstance(node1, list):
+    if isinstance(node1, list):
         if len(node1) != len(node2):
             return False
         return all(compare_ast(n1, n2) for n1, n2 in zip(node1, node2))
-    else:
-        return node1 == node2
+    return node1 == node2
 
 
 def highlight(message: str, highlights: str) -> str:
     """Replace highlight placeholders in a given string using selected method"""
     if highlights == "color":
         return message.replace(HL_OPEN, Fore.RED).replace(HL_CLOSE, Style.RESET_ALL)
-    elif highlights == "quotes":
+    if highlights == "quotes":
         return message.replace(HL_OPEN, "'").replace(HL_CLOSE, "'")
 
     raise ValueError("Highlight should be one of: " + str(HIGHLIGHTS))
